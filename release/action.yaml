@@ -27,7 +27,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: exadrift/github-actions-agent/install-agent@initial_actions
+    - uses: exadrift/github-actions/install-agent@initial_actions
       with:
         tag: ${{ inputs.agent-tag }}
     - name: create point release with tag, and update one or more tags

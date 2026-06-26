@@ -30,7 +30,7 @@ jobs:
       with:
         fetch-depth: 0
     - id: get-changed-dirs
-      uses: exadrift/github-actions-agent/changed-dirs@changed-dirs-v0
+      uses: exadrift/github-actions/changed-dirs@changed-dirs-v0
 
   do-matrix-action:
     # require the matrix above
@@ -58,10 +58,10 @@ jobs:
     - do-matrix-action
     steps:
     - name: update base tag
-      uses: exadrift/github-actions-agent/changed-dirs@changed-dirs-v0
+      uses: exadrift/github-actions/changed-dirs@changed-dirs-v0
       with:
         # causes the base tag to be written, essentially finalizing the processed change set
         update-base-tag: true
 ```
 
-for usage, see the [action.yaml](https://github.com/exadrift/github-actions-agent/blob/main/changed-dirs/action.yaml)
+for usage, see the [action.yaml](https://github.com/exadrift/github-actions/blob/main/changed-dirs/action.yaml)

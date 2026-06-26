@@ -27,7 +27,7 @@ runs:
         else
           echo "installing github actions agent from docker image"
           docker rm -f agent-container
-          docker container create --name agent-container frozengoats/agent:${TAG}
+          docker container create --name agent-container exadrift/agent:${TAG}
           docker container cp agent-container:/agent /usr/local/bin/${{ inputs.target-name }}
           chmod +x /usr/local/bin/${{ inputs.target-name }}
           docker rm -f agent-container
