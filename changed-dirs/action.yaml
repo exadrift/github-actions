@@ -1,0 +1,100 @@
+name: changed-dirs
+description: enumerate directories containing changes
+inputs:
+  working-directory:
+    description: directory in which to surface directories with changes
+    default: ""
+  update-base-tag:
+    description: finalize the base tag but perform no other action.  this should only be enabled at the end of the workflow, outside the matrix
+    default: "false"
+  include-prefix:
+    description: only include directories with this prefix (beginning after working-directory)
+    default: ""
+  exclude-prefix:
+    description: exclude any directory with this prefix (beginning after working-directory)
+    default: ""
+  include-deleted:
+    description: include deleted items
+    type: boolean
+    default: "false"
+  include-hidden-directories:
+    description: include hidden directories in changes list
+    default: "false"
+  base-tag:
+    description: the base tag which tracks changes on the current branch (even if default) until updated
+    default: exadrift.agent.base
+  agent-tag:
+    description: docker tag of the agent version to consume
+    default: ""
+outputs:
+  directories:
+    description: 'json list of changed directory objects, each object contains {"name": <name>, "path": <path>}'
+    value: ${{ steps.list-changed-directories.outputs.directories }}
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
+    - name: pull remote tags
+      shell: bash
+      run: git fetch --tags --force
+    - uses: exadrift/github-actions-agent/install-agent@initial_actions
+      with:
+        tag: ${{ inputs.agent-tag }}
+    - name: establish branches and base tag
+      id: vars
+      shell: bash
+      run: |
+        CHANGES_BASE_COMMIT=$(${AGENT_BINARY} verify-tag ${{ inputs.base-tag }})
+        DEFAULT_BRANCH=$(${AGENT_BINARY} branch -d)
+        CURRENT_BRANCH=$(${AGENT_BINARY} branch)
+        DEFAULT_BRANCH_HEAD=$(${AGENT_BINARY} verify-branch ${DEFAULT_BRANCH})
+
+        echo CHANGES_BASE_COMMIT=${CHANGES_BASE_COMMIT}
+        echo DEFAULT_BRANCH=${DEFAULT_BRANCH}
+        echo CURRENT_BRANCH=${CURRENT_BRANCH}
+        echo DEFAULT_BRANCH_HEAD=${DEFAULT_BRANCH_HEAD}
+
+        echo "base-commit=${CHANGES_BASE_COMMIT}" >> ${GITHUB_OUTPUT}
+        echo "default-branch=${DEFAULT_BRANCH}" >> ${GITHUB_OUTPUT}
+        echo "current-branch=${CURRENT_BRANCH}" >> ${GITHUB_OUTPUT}
+        echo "default-branch-head=${DEFAULT_BRANCH_HEAD}" >> ${GITHUB_OUTPUT}
+    - name: create changes base tag
+      if: steps.vars.outputs.base-commit == ''
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        ${AGENT_BINARY} tag-commit ${{ inputs.base-tag }} ${{ steps.vars.outputs.default-branch-head }} \
+          -o "${{ github.repository_owner }}" \
+          -r "${{ github.event.repository.name }}"
+    - name: pull new changes base tag
+      if: steps.vars.outputs.base-commit == '' && inputs.update-base-tag == 'false'
+      shell: bash
+      run: git fetch --tags --force
+    - name: update changes base tag
+      if: inputs.update-base-tag == 'true' && (steps.vars.outputs.current-branch == steps.vars.outputs.default-branch)
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        ${AGENT_BINARY} tag-commit ${{ inputs.base-tag }} ${{ steps.vars.outputs.default-branch-head }} \
+          -o "${{ github.repository_owner }}" \
+          -r "${{ github.event.repository.name }}"
+    - name: list changed directories
+      id: list-changed-directories
+      if: inputs.update-base-tag == 'false'
+      shell: bash
+      run: |
+        JSON_OUTPUT=$(${AGENT_BINARY} changed-directories \
+          -p ${{ inputs.base-tag }} \
+          -w "${{ inputs.working-directory }}" \
+          -e "${{ inputs.exclude-prefix }}" \
+          -i "${{ inputs.include-prefix }}" \
+          -d "${{ inputs.ignore-deleted }}" \
+          -z "${{ inputs.include-hidden-directories }}" \
+          -j)
+        echo "changed directories:"
+        echo $JSON_OUTPUT
+        echo "directories=$JSON_OUTPUT" >> $GITHUB_OUTPUT

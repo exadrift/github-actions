@@ -1,0 +1,44 @@
+name: release
+description: create tag and/or release
+inputs:
+  working-directory:
+    description: the working directory in which to execute
+    default: ""
+  tags:
+    # the first tag must be immutable, followed by any other mutable tags.  any binary specified will only be uploaded to
+    # the first immutable tag.  if the first tag is NOT immutable, it cannot include a binary
+    description: a comma delimited list of tags to create or update
+    default: ""
+  description:
+    description: text which describes the current release
+    default: ""
+  binary-paths:
+    # since binaries cannot be atomically replaced, we do not support adding them to mutable tags,
+    # thus the first tag in your list of tags should be the immutable tag, followed by any major/minor mutable
+    # tags, which will NOT receive the binary upload
+    description: paths to a binaries which will be uploaded to ONLY the first tag release in the list (comma delimited list)
+    default: ""
+  binary-names:
+    description: alternate names for each binary specified in binary-paths, all must be specified if any are included (comma delimited list)
+    default: ""
+  agent-tag:
+    description: docker tag of the github actions agent
+    default: ""
+runs:
+  using: composite
+  steps:
+    - uses: exadrift/github-actions-agent/install-agent@initial_actions
+      with:
+        tag: ${{ inputs.agent-tag }}
+    - name: create point release with tag, and update one or more tags
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        ${AGENT_BINARY} release ${{ inputs.tags }} \
+          -o "${{ github.repository_owner }}" \
+          -r "${{ github.event.repository.name }}" \
+          -w "${{ inputs.working-directory }}" \
+          --binary-locations "${{ inputs.binary-paths }}" \
+          --binary-name-overrides "${{ inputs.binary-names }}" \
+          -d "${{ inputs.description }}"

@@ -1,0 +1,31 @@
+name: is-default
+description: determine whether or not the checked out branch is the default branch
+inputs:
+  agent-tag:
+    description: docker tag of the github actions agent
+    default: ""
+outputs:
+  is-default:
+    description: indicates whether or not the current active branch is the default branch (ie. a merge has occurred, or direct push)
+    value: ${{ steps.set-outputs.outputs.is-default }}
+runs:
+  using: composite
+  steps:
+    - name: pull remote tags
+      shell: bash
+      run: git fetch --tags --force
+    - uses: exadrift/github-actions-agent/install-agent@initial_actions
+      with:
+        tag: ${{ inputs.agent-tag }}
+    - name: set default branch status
+      id: set-outputs
+      shell: bash
+      run: |
+        DEFAULT_BRANCH=$(${AGENT_BINARY} branch -d)
+        CURRENT_BRANCH=$(${AGENT_BINARY} branch)
+        if [ "${DEFAULT_BRANCH}" == ${CURRENT_BRANCH} ]
+        then
+          echo "is-default=true" >> ${GITHUB_OUTPUT}
+        else
+          echo "is-default=false" >> ${GITHUB_OUTPUT}
+        fi

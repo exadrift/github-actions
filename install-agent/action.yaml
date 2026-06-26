@@ -1,0 +1,41 @@
+name: install-agent
+description: install github actions agent on the host system if currently not installed
+inputs:
+  tag:
+    description: tag to use for the agent docker image
+    # default is empty in order to allow empty tag pass-through from parent actions, in order to
+    # allow override within said parent action.  if empty, the default will be supplied in the script below
+    default: ""
+  target-name:
+    description: target command name to be used for all agent based actions
+    default: agent
+runs:
+  using: composite
+  steps:
+    - name: install the agent if unavailable
+      shell: bash
+      run: |
+        TAG=${{ inputs.tag }}
+        if [ "${TAG}" == "" ]
+        then
+          TAG=v0
+        fi
+
+        if [ -f /usr/local/bin/${{ inputs.target-name }} ]
+        then
+          echo "github actions agent is already installed, nothing to do"
+        else
+          echo "installing github actions agent from docker image"
+          docker rm -f agent-container
+          docker container create --name agent-container frozengoats/agent:${TAG}
+          docker container cp agent-container:/agent /usr/local/bin/${{ inputs.target-name }}
+          chmod +x /usr/local/bin/${{ inputs.target-name }}
+          docker rm -f agent-container
+          echo "AGENT_BINARY=${{ inputs.target-name }}" >> $GITHUB_ENV
+        fi
+
+        echo "ci agent version is $(agent version)"
+
+    - name: verify agent installation
+      shell: bash
+      run: ${AGENT_BINARY} version
