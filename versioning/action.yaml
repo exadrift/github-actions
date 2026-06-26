@@ -1,0 +1,84 @@
+name: versioning
+description: ensure that versioning constraints have been applied to the repository
+inputs:
+  working-directory:
+    description: the working directory to prepend to all filename in the inputs
+    default: ""
+  version-filename:
+    description: the absolute or relative path to the version file
+    default: VERSION
+  version-file-type:
+    description: a type hint (one of yaml, toml, json, txt), indicating the data type of the file if it's not clearly indicated by the extension
+    default: ""
+  version-file-key:
+    description: the dotted decimal key to the version, in hierarchical version files (json/yaml) eg. "my.version.number"
+    default: ""
+  changelog-filename:
+    description: the absolute or relateive path to the change log file
+    default: CHANGELOG.md
+  verify-changelog:
+    description: ensure that a changelog file exists, and that the head entry matches the current version
+    type: boolean
+    default: "true"
+  tag-prefix:
+    description: prefix to prepend to the version when checking/generating git tag
+    default: ""
+  agent-tag:
+    description: docker tag of the github actions agent
+    default: ""
+outputs:
+  version:
+    description: the version as it's recorded in the version file
+    value: ${{ steps.set-outputs.outputs.version }}
+  version-major:
+    description: the version in the version file, reduced to it's major component
+    value: ${{ steps.set-outputs.outputs.version-major }}
+  version-major-minor:
+    description: the version in the version file, reduced to it's major and minor components
+    value: ${{ steps.set-outputs.outputs.version-major-minor }}
+  version-short-commit-hash:
+    description: the version in the version file with an appended short commit hash
+    value: ${{ steps.set-outputs.outputs.version-short-commit-hash }}
+  version-python-dev:
+    description: the version in the version file with a python dev version modifier (can publish to package index) indicating this paricular pre-release build
+    value: ${{ steps.set-outputs.outputs.version-python-dev }}
+  version-npm-dev:
+    description: the version in the version file with an npm dev version modifier (can publish to package index) indicating this paricular pre-release build
+    value: ${{ steps.set-outputs.outputs.version-npm-dev }}
+  version-branch:
+    description: the version with the current branch appended to the end <version>-<branch>
+    value: ${{ steps.set-outputs.outputs.version-branch }}
+runs:
+  using: composite
+  steps:
+    - name: pull remote tags
+      shell: bash
+      run: git fetch --tags --force
+    - uses: exadrift/github-actions/install-agent@initial_actions
+      with:
+        tag: ${{ inputs.agent-tag }}
+    - name: verify the version file exists
+      id: set-outputs
+      shell: bash
+      run: |
+        echo "version=$(${AGENT_BINARY} version-get "${{ inputs.version-filename }}" --key "${{ inputs.version-file-key }}" -w "${{ inputs.working-directory }}")" >> ${GITHUB_OUTPUT}
+        echo "version-major=$(${AGENT_BINARY} version-get "${{ inputs.version-filename }}" --key "${{ inputs.version-file-key }}" -w "${{ inputs.working-directory }}" --extract-major-version)" >> ${GITHUB_OUTPUT}
+        echo "version-major-minor=$(${AGENT_BINARY} version-get "${{ inputs.version-filename }}" --key "${{ inputs.version-file-key }}" -w "${{ inputs.working-directory }}" --extract-to-minor-version)" >> ${GITHUB_OUTPUT}
+        echo "version-short-commit-hash=$(${AGENT_BINARY} version-get "${{ inputs.version-filename }}" --key "${{ inputs.version-file-key }}" -w "${{ inputs.working-directory }}" --append-short-commit-hash)" >> ${GITHUB_OUTPUT}
+        echo "version-python-dev=$(${AGENT_BINARY} version-get "${{ inputs.version-filename }}" --key "${{ inputs.version-file-key }}" -w "${{ inputs.working-directory }}" --append-poetry-dev-timestamp)" >> ${GITHUB_OUTPUT}
+        echo "version-npm-dev=$(${AGENT_BINARY} version-get "${{ inputs.version-filename }}" --key "${{ inputs.version-file-key }}" -w "${{ inputs.working-directory }}" --append-npm-short-commit-hash)" >> ${GITHUB_OUTPUT}
+        echo "version-branch=$(${AGENT_BINARY} version-get "${{ inputs.version-filename }}" --key "${{ inputs.version-file-key }}" -w "${{ inputs.working-directory }}" --append-branch)" >> ${GITHUB_OUTPUT}
+    - name: verify the version has not yet been tagged
+      shell: bash
+      run: |
+        TAG=${{ inputs.tag-prefix }}${{ steps.set-outputs.outputs.version }}
+        COMMIT=$(${AGENT_BINARY} verify-tag ${{ inputs.tag-prefix }}${{ steps.set-outputs.outputs.version }})
+        if [ "$COMMIT" != "" ]
+        then
+          echo "the git tag $TAG already exists, please increment the version"
+          exit 1
+        fi
+    - name: verify the change log
+      if: inputs.verify-changelog == 'true'
+      shell: bash
+      run: ${AGENT_BINARY} verify-change-log ${{ inputs.changelog-filename }} ${{ steps.set-outputs.outputs.version }} -w "${{ inputs.working-directory }}"
