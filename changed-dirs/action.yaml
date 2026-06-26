@@ -39,7 +39,7 @@ runs:
     - name: pull remote tags
       shell: bash
       run: git fetch --tags --force
-    - uses: exadrift/github-actions/install-agent@initial_actions
+    - uses: exadrift/github-actions/install-agent@install-agent-v1
       with:
         tag: ${{ inputs.agent-tag }}
     - name: establish branches and base tag
