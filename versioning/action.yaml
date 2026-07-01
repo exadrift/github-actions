@@ -75,6 +75,8 @@ runs:
       id: set-outputs
       shell: bash
       run: |
+        # first run will exit on failure
+        version-get "${{ inputs.version-filename }}" --key "${{ inputs.version-file-key }}" -w "${{ inputs.working-directory }}")
         echo "version=$(${AGENT_BINARY} version-get "${{ inputs.version-filename }}" --key "${{ inputs.version-file-key }}" -w "${{ inputs.working-directory }}")" >> ${GITHUB_OUTPUT}
         echo "version-major=$(${AGENT_BINARY} version-get "${{ inputs.version-filename }}" --key "${{ inputs.version-file-key }}" -w "${{ inputs.working-directory }}" --extract-major-version)" >> ${GITHUB_OUTPUT}
         echo "version-major-minor=$(${AGENT_BINARY} version-get "${{ inputs.version-filename }}" --key "${{ inputs.version-file-key }}" -w "${{ inputs.working-directory }}" --extract-to-minor-version)" >> ${GITHUB_OUTPUT}
