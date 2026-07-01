@@ -57,20 +57,6 @@ runs:
     - uses: exadrift/github-actions/install-agent@install-agent-v1
       with:
         tag: ${{ inputs.agent-tag }}
-    - name: ensure version file exists
-      shell: bash
-      run: |
-        ${AGENT_BINARY} version-get "${{ inputs.version-filename }}" --key "${{ inputs.version-file-key }}" -w "${{ inputs.working-directory }}"
-        if [ ${{ inputs.working-directory }} != "" ]
-        then
-          cd ${{ inputs.working-directory }}
-        fi
-
-        if [ ! -f ${{ inputs.version-filename }} ]
-        then
-          echo "version file \"${{ inputs.version-filename }} was not found\""
-          exit 1
-        fi
     - name: establish version variants
       id: set-outputs
       shell: bash
